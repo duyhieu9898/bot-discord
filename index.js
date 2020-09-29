@@ -5,7 +5,10 @@ const {
 const client = new Client();
 const cron = require("node-cron");
 
-timesCheckIn = [{
+const maxNotifyInHour = 5;
+let notifyInHour = 0;
+
+let timesCheckIn = [{
     time: {
       hours: 9,
       minutes: 55
@@ -47,6 +50,8 @@ const isTimeCheckIn = function (timeCheck, minute) {
   })
 }
 let isTimeSet = false
+let  timeCron = '*/60 * * * * *'
+let hasReset = false
 
 const sleep = function (millisecond) {
   return new Promise((resolve, reject) => {
@@ -55,6 +60,18 @@ const sleep = function (millisecond) {
     }, millisecond)
   })
 }
+
+const resetCheckTime = function () {
+  console.log('======reset======')
+  hasReset = true
+  timesCheckIn = timesCheckIn.map(time => {
+    time.check = false
+    return time
+  })
+  console.log(timesCheckIn)
+}
+
+
 
 const embed = new MessageEmbed()
   .setTitle('CHECK_IN')
@@ -65,7 +82,8 @@ client.on('ready', async () => {
   console.log('I am ready!');
   chanel = client.channels.cache.get('710518886071795722')
 
-  cron.schedule("*/60 * * * * *", async function () {
+  cron.schedule(timeCron, async function () {
+    console.log(timeCron)
     const date = new Date()
     const time = {
       hours: date.getHours(),
@@ -73,7 +91,14 @@ client.on('ready', async () => {
     }
     embed.setDescription('Hello, check in now' + ` -- ${time.hours}h : ${time.minutes}p`)
     if (isTimeCheckIn(time) && !isTimeCheckIn(time).check) {
-      await chanel.send(embed)
+      if (notifyInHour <= maxNotifyInHour) {
+        await chanel.send(embed)
+      } else {
+        chanel.send('=========AUTO_CHECK=========')
+        isTimeSet.check = true
+        notifyInHour = 0
+      }
+      notifyInHour ++
       isTimeSet = isTimeCheckIn(time)
       // await sleep(10000)
       // while (!isTimeCheckIn(time).check) {
@@ -82,6 +107,13 @@ client.on('ready', async () => {
       // }
     } else {
       console.log('next', `-- ${time.hours}h : ${time.minutes}p`)
+    }
+    //
+    if (time.hours === 19 && !hasReset) {
+      resetCheckTime()
+    }
+    if (time.hours === 8) {
+      hasReset = false
     }
   })
 });
